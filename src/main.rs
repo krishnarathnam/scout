@@ -23,9 +23,38 @@ async fn send_message(input: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let client = reqwest::Client::new();
 
+    let mut prompt = String::from(
+        "You are a query parser for a financial CLI tool.
+
+        Your job:
+        1) Extract the NSE ticker symbol mentioned in the user's question.
+        2) If a company name is used, infer the correct stock ticker.
+        3) Split the user's question into smaller logical sub-questions that preserve the original meaning.
+
+        IMPORTANT RULES:
+        - Do NOT invent data retrieval tasks.
+        - Do NOT mention APIs, scraping, reddit, news, financial statements, or analysis methods.
+        - Only rewrite the user's intent into simpler questions.
+        - Keep the meaning exactly the same.
+        - Output ONLY valid JSON.
+        - No explanations, no markdown.
+
+        Return format:
+
+        {
+        \"ticker\": \"STRING_OR_NULL\",
+        \"questions\": [
+            \"sub question 1\",
+            \"sub question 2\"
+        ]
+        }",
+    );
+
+    prompt.push_str(&input);
+
     let body = serde_json::json!({
         "model": config.model,
-        "prompt": input,
+        "prompt": prompt,
         "steam": false
     });
 
@@ -68,7 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     input.push(c);
                     redraw(&input);
                 }
-
                 KeyCode::Backspace => {
                     input.pop();
                     redraw(&input);

@@ -1,20 +1,35 @@
 mod config;
 use crossterm::{
-    cursor::MoveToColumn,
-    event::{Event, KeyCode, KeyEventKind, read},
+    cursor::{MoveToColumn, MoveUp},
+    event::{read, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, size, Clear, ClearType},
 };
 use std::io::{self, Write};
 
 use crate::config::Config;
 
-fn redraw(input: &str) {
+fn redraw(input: &str, prev_lines: &mut u16) {
     let mut stdout = io::stdout();
-    execute!(stdout, MoveToColumn(0), Clear(ClearType::CurrentLine)).unwrap();
 
-    print!("> {}", input);
+    let prompt = format!("> {}", input);
+    let (cols, _) = size().unwrap_or((80, 0));
+    let cols = cols.max(1);
+    let content_len = prompt.chars().count() as u16;
+    let lines = ((content_len.saturating_sub(1)) / cols) + 1;
+
+    if *prev_lines > 1 {
+        for _ in 0..(*prev_lines - 1) {
+            execute!(stdout, MoveUp(1)).unwrap();
+        }
+    }
+
+    execute!(stdout, MoveToColumn(0), Clear(ClearType::FromCursorDown)).unwrap();
+
+    print!("{}", prompt);
     stdout.flush().unwrap();
+
+    *prev_lines = lines;
 }
 
 async fn send_message(input: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -88,18 +103,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
 
     let mut input = String::new();
-    redraw(&input);
+    let mut prev_lines: u16 = 1;
+    redraw(&input, &mut prev_lines);
 
     loop {
         match read()? {
             Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
                 KeyCode::Char(c) => {
                     input.push(c);
-                    redraw(&input);
+                    redraw(&input, &mut prev_lines);
                 }
                 KeyCode::Backspace => {
                     input.pop();
-                    redraw(&input);
+                    redraw(&input, &mut prev_lines);
                 }
 
                 KeyCode::Enter => {
@@ -109,7 +125,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     send_message(&input).await?;
                     enable_raw_mode()?;
                     input.clear();
-                    redraw(&input);
+                    prev_lines = 1;
+
+                    let mut stdout = io::stdout();
+                    print!("> ");
+                    stdout.flush().unwrap();
                 }
 
                 KeyCode::Esc => break,

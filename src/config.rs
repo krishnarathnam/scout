@@ -11,7 +11,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             model: "qwen2.5:7b-instruct".to_string(),
-            ollama_host: "http://192.168.0.104:11434/api/generate".to_string(),
+            ollama_host: "http://192.168.0.111:11434/api/generate".to_string(),
         }
     }
 }

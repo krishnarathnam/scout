@@ -1,5 +1,6 @@
 mod agent;
 mod config;
+mod tools;
 use crossterm::{
     cursor::{MoveToColumn, MoveUp},
     event::{Event, KeyCode, KeyEventKind, read},
@@ -52,17 +53,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 KeyCode::Enter => {
-                    println!("\n");
-
                     disable_raw_mode()?;
-                    agent::send_message(&input).await?;
+                    println!();
+
+                    let ticker = match agent::get_ticker(&input).await {
+                        Ok(value) => value,
+                        Err(e) => {
+                            println!("{e}");
+                            enable_raw_mode()?;
+                            input.clear();
+                            prev_lines = 1;
+                            redraw(&input, &mut prev_lines);
+                            continue;
+                        }
+                    };
+
+                    println!("Resolved ticker: {}", ticker);
+
                     enable_raw_mode()?;
                     input.clear();
                     prev_lines = 1;
-
-                    let mut stdout = io::stdout();
-                    print!("> ");
-                    stdout.flush().unwrap();
+                    redraw(&input, &mut prev_lines);
                 }
 
                 KeyCode::Esc => break,

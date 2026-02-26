@@ -69,6 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     println!("Resolved ticker: {}", ticker);
+                    tools::get_ticker_info(ticker.as_str()).await?;
 
                     enable_raw_mode()?;
                     input.clear();

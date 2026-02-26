@@ -1,6 +1,8 @@
+use anyhow::Result;
 use csv::Reader;
 use std::fs::File;
 use strsim::jaro_winkler;
+use yfinance_rs::{Interval, Range, Ticker, YfClient};
 
 pub fn find_ticker(company: &str) -> Option<String> {
     let file = File::open("data/nse.csv").ok()?;
@@ -27,4 +29,34 @@ pub fn find_ticker(company: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+pub async fn get_ticker_info(symbol: &str) -> Result<()> {
+    let client = YfClient::default();
+    let ticker = Ticker::new(&client, symbol);
+
+    let history = ticker
+        .history(Some(Range::M6), Some(Interval::D1), false)
+        .await?;
+
+    if let Some(last_bar) = history.last() {
+        println!(
+            "Last closing price: {:.2} on timestamp {}",
+            yfinance_rs::core::conversions::money_to_f64(&last_bar.close),
+            last_bar.ts
+        );
+    }
+
+    let news = ticker.news().await?;
+
+    if news.is_empty() {
+        println!("No recent news");
+    } else {
+        println!("{news:#?}");
+    }
+    //for news_article in news {
+
+    //}
+
+    Ok(())
 }

@@ -1,8 +1,6 @@
 use crate::{config::Config, tools};
 use anyhow::Result;
 
-//use yfinance_rs::{Interval, Range, Ticker, YfClient};
-
 pub async fn get_ticker(input: &str) -> Result<String> {
     let config = Config::from_env()?;
     let client = reqwest::Client::new();
@@ -104,24 +102,3 @@ pub async fn get_ticker(input: &str) -> Result<String> {
 
     Ok(ticker)
 }
-
-//async fn get_ticker_info(symbol: &str) -> Result<()> {
-//    let client = YfClient::default();
-//    let ticker = Ticker::new(&client, symbol);
-//
-//    let history = ticker
-//        .history(Some(Range::M6), Some(Interval::D1), false)
-//        .await?;
-//    if let Some(last_bar) = history.last() {
-//        println!(
-//            "Last closing price: {:.2} on timestamp {}",
-//            yfinance_rs::core::conversions::money_to_f64(&last_bar.close),
-//            last_bar.ts
-//        );
-//    }
-//
-//    let news = ticker.news().await?;
-//    println!("{news:?}");
-//
-//    Ok(())
-//}

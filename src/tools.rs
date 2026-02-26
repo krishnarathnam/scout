@@ -35,6 +35,12 @@ pub async fn get_ticker_info(symbol: &str) -> Result<()> {
     let client = YfClient::default();
     let ticker = Ticker::new(&client, symbol);
 
+    let price_target = ticker.analyst_price_target(None).await?;
+    println!("{:?}", price_target);
+
+    let rec_sum = ticker.recommendations_summary().await?;
+    println!("{:?}", rec_sum);
+
     let history = ticker
         .history(Some(Range::M6), Some(Interval::D1), false)
         .await?;

@@ -89,12 +89,12 @@ pub async fn get_ticker(input: &str) -> Result<String> {
                     }
                 };
 
-                ticker = t;
+                ticker = t.to_string();
             } else {
                 return Err(anyhow::anyhow!("Company or NSE ticker not provided"));
             }
         } else {
-            ticker = parsed["ticker"].to_string();
+            ticker = parsed["ticker"].as_str().unwrap().to_string();
         }
     } else {
         eprintln!("Failed to get response: {:?}", response.status());

@@ -55,15 +55,19 @@ pub async fn get_balance_sheet(symbol: &str, user: &mut YahooProvider) -> Result
         .ok_or_else(|| anyhow::anyhow!("Missing crumb"))?;
 
     let link = format!(
-        "https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=balanceSheetHistory&crumb={}",
+        "https://query1.finance.yahoo.com/v10/finance/quoteSummary/NVDA?modules=incomeStatementHistory&crumb={}",
         crumb
     );
+
+    //let link = format!("https://finance.yahoo.com/quote/{symbol}/financials/");
 
     println!("{link}");
 
     let response = user.client.get(&link).send().await?;
-
     println!("Status: {}", response.status());
+
+    let body = response.text().await?;
+    println!("{body:#}");
 
     Ok(())
 }

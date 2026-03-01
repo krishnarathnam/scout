@@ -7,7 +7,7 @@ import yfinance as yf
 
 symbol = "TATASTEEL.NS"
 ticker = yf.Ticker(symbol)
-bs = ticker.income_stmt
+bs = ticker.cashflow
 
 if bs is None or bs.empty:
     print("No balance sheet data returned.")

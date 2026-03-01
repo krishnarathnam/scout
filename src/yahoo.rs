@@ -40,35 +40,18 @@ impl YahooProvider {
             .send()
             .await?;
 
-        let response = match client
+        let crumb = match client
             .get("https://query1.finance.yahoo.com/v1/test/getcrumb")
             .send()
             .await
         {
-            Ok(res) => res,
-            Err(e) => {
-                println!("Error during send(): {e}");
-                return Err(e.into());
-            }
+            Ok(res) if res.status().is_success() => res.text().await.ok().map(|t| t.trim().to_string()),
+            _ => None,
         };
-
-        println!("Status: {}", response.status());
-
-        let crumb_text = match response.text().await {
-            Ok(text) => text,
-            Err(e) => {
-                println!("Error during text(): {e}");
-                return Err(e.into());
-            }
-        };
-
-        let crumb = crumb_text.trim().to_string();
-
-        println!("CRUMB: {}", crumb);
 
         Ok(Self {
             client,
-            crumb: Some(crumb),
+            crumb,
             last_requested_time: None,
         })
     }

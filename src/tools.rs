@@ -1,8 +1,9 @@
+use crate::yahoo::YahooProvider;
 use anyhow::Result;
 use csv::Reader;
 use std::fs::File;
+use std::time::{Duration, Instant};
 use strsim::jaro_winkler;
-use yfinance_rs::{Interval, Range, Ticker, YfClient};
 
 pub fn find_ticker(company: &str) -> Option<String> {
     let file = File::open("data/nse.csv").ok()?;
@@ -31,38 +32,38 @@ pub fn find_ticker(company: &str) -> Option<String> {
     }
 }
 
-pub async fn get_ticker_info(symbol: &str) -> Result<()> {
-    let client = YfClient::default();
-    let ticker = Ticker::new(&client, symbol);
+pub async fn get_balance_sheet(symbol: &str, user: &mut YahooProvider) -> Result<()> {
+    let min_interval = Duration::from_secs(60);
 
-    let price_target = ticker.analyst_price_target(None).await?;
-    println!("{:?}", price_target);
-
-    let rec_sum = ticker.recommendations_summary().await?;
-    println!("{:?}", rec_sum);
-
-    let history = ticker
-        .history(Some(Range::M6), Some(Interval::D1), false)
-        .await?;
-
-    if let Some(last_bar) = history.last() {
-        println!(
-            "Last closing price: {:.2} on timestamp {}",
-            yfinance_rs::core::conversions::money_to_f64(&last_bar.close),
-            last_bar.ts
-        );
+    if let Some(last) = user.last_requested_time {
+        let elapsed = last.elapsed();
+        if elapsed < min_interval {
+            let remaining = min_interval - elapsed;
+            println!(
+                "Rate limit active. Try again in {} seconds.",
+                remaining.as_secs()
+            );
+            return Ok(());
+        }
     }
 
-    let news = ticker.news().await?;
+    user.last_requested_time = Some(Instant::now());
 
-    if news.is_empty() {
-        println!("No recent news");
-    } else {
-        println!("{news:#?}");
-    }
-    //for news_article in news {
+    let crumb = user
+        .crumb
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("Missing crumb"))?;
 
-    //}
+    let link = format!(
+        "https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=balanceSheetHistory&crumb={}",
+        crumb
+    );
+
+    println!("{link}");
+
+    let response = user.client.get(&link).send().await?;
+
+    println!("Status: {}", response.status());
 
     Ok(())
 }

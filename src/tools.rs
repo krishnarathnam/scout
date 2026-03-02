@@ -32,8 +32,29 @@ pub fn find_ticker(company: &str) -> Option<String> {
     }
 }
 
-pub async fn get_income_statement(symbol: &str, client: &reqwest::Client) -> Result<()> {
-    let link = format!("https://finance.yahoo.com/quote/{}/financials", symbol);
+pub async fn get_financials(symbol: &str, client: &reqwest::Client, finance: &str) -> Result<()> {
+    let mut link: String = String::new();
+    let mut title: String = String::new();
+
+    match finance {
+        "income_statement" => {
+            link = format!("https://finance.yahoo.com/quote/{}/financials", symbol);
+            title = format!("Income Statement – {}", symbol);
+        }
+        "balance_sheet" => {
+            link = format!("https://finance.yahoo.com/quote/{}/balance-sheet/", symbol);
+            title = format!("Balance Sheet – {}", symbol);
+        }
+        "cash_flow" => {
+            link = format!("https://finance.yahoo.com/quote/{}/cash-flow/", symbol);
+            title = format!("Cash Flow – {}", symbol);
+        }
+
+        _ => {
+            println!("Wrong finance");
+        }
+    }
+
     let response = client.get(&link).send().await?;
 
     if !response.status().is_success() {
@@ -45,24 +66,8 @@ pub async fn get_income_statement(symbol: &str, client: &reqwest::Client) -> Res
 
     if let Some((headers, rows)) = income_statement::scrape_financials_table(&body) {
         let period_headers: Vec<String> = headers.into_iter().skip(1).collect();
-        display::print_scraped_table(
-            &format!("Income Statement – {}", symbol),
-            &period_headers,
-            &rows,
-        );
+        display::print_scraped_table(&title.as_str(), &period_headers, &rows);
         return Ok(());
-    }
-
-    let quote_link = format!("https://finance.yahoo.com/quote/{}", symbol);
-    let quote_resp = client.get(&quote_link).send().await?;
-    if quote_resp.status().is_success() {
-        let quote_body = quote_resp.text().await?;
-        if let Some(qs) = income_statement::extract_quote_summary(&quote_body) {
-            display::print_company_info(symbol, &qs);
-            display::print_financials_chart(&qs);
-            display::print_income_statement_quarterly(&qs);
-            return Ok(());
-        }
     }
 
     Err(anyhow::anyhow!(

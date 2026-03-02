@@ -61,8 +61,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     println!("Resolved ticker: {}", ticker);
-                    match tools::get_income_statement(ticker.as_str(), &client).await {
-                        Ok(value) => value,
+                    let (inc_res, bal_res, cash_res) = tokio::join!(
+                        tools::get_financials(ticker.as_str(), &client, "income_statement"),
+                        tools::get_financials(ticker.as_str(), &client, "balance_sheet"),
+                        tools::get_financials(ticker.as_str(), &client, "cash_flow")
+                    );
+
+                    match inc_res {
+                        Ok(val) => val,
                         Err(e) => {
                             println!("{e}");
                             enable_raw_mode()?;
@@ -71,7 +77,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ui::redraw(&input, &mut prev_lines);
                             continue;
                         }
-                    };
+                    }
+
+                    match bal_res {
+                        Ok(val) => val,
+                        Err(e) => {
+                            println!("{e}");
+                            enable_raw_mode()?;
+                            input.clear();
+                            prev_lines = 1;
+                            ui::redraw(&input, &mut prev_lines);
+                            continue;
+                        }
+                    }
+
+                    match cash_res {
+                        Ok(val) => val,
+                        Err(e) => {
+                            println!("{e}");
+                            enable_raw_mode()?;
+                            input.clear();
+                            prev_lines = 1;
+                            ui::redraw(&input, &mut prev_lines);
+                            continue;
+                        }
+                    }
 
                     enable_raw_mode()?;
                     input.clear();

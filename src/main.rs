@@ -1,9 +1,11 @@
 mod agent;
 mod config;
+mod display;
+mod income_statement;
 mod model_select;
 mod tools;
 mod ui;
-mod yahoo;
+mod user;
 
 use anyhow::Result;
 use crossterm::{
@@ -13,13 +15,7 @@ use crossterm::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut user = match yahoo::YahooProvider::new().await {
-        Ok(value) => value,
-        Err(e) => {
-            println!("Initialization failed: {e}");
-            return Err(e.into()); // or return Err(e.into());
-        }
-    };
+    let client = user::user_client()?;
     enable_raw_mode()?;
 
     ui::print_banner()?;
@@ -65,7 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     println!("Resolved ticker: {}", ticker);
-                    match tools::get_balance_sheet(ticker.as_str(), &mut user).await {
+                    match tools::get_income_statement(ticker.as_str(), &client).await {
                         Ok(value) => value,
                         Err(e) => {
                             println!("{e}");

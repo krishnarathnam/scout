@@ -42,9 +42,6 @@ pub async fn get_ticker(input: &str) -> Result<String> {
 
     if response.status().is_success() {
         let text = response.text().await?;
-        //println!("RAW RESPONSE START");
-        //println!("{}", text);
-        //println!("RAW RESPONSE END");
         let outer: serde_json::Value = match serde_json::from_str(&text) {
             Ok(value) => value,
             Err(e) => {
@@ -99,6 +96,69 @@ pub async fn get_ticker(input: &str) -> Result<String> {
     } else {
         eprintln!("Failed to get response: {:?}", response.status());
     }
-
     Ok(ticker)
+}
+
+pub async fn get_review(finance_statement: &String) -> Result<()> {
+    println!("- Analyzing data");
+    let config = Config::from_env()?;
+    let client = reqwest::Client::new();
+    let mut prompt: String = String::from("You are a financial statement analyzer.
+
+    You will be given structured financial data for a company’s:
+
+    1) Balance sheet  
+    2) Income statement  
+    3) Cash flow
+
+    Your task is to generate a **four-paragraph plain English analysis**, one for each of the following:
+
+    Paragraph 1: Balance sheet insights  
+    Paragraph 2: Income statement insights  
+    Paragraph 3: Cash flow insights  
+    Paragraph 4: Based on the given insights, provide a suggestion whether investing in this company appears favorable or not.
+
+    Rules:
+
+    • Use only the numbers present in the input — do NOT add any external knowledge or guess anything.  
+    • Do NOT hallucinate metrics that are not in the data.  
+    • Do NOT explain how you generated the text — output only the final analysis text.  
+    • Each paragraph should reference the key trends or relationships seen in the provided numbers.  
+    • If a section has missing fields, mention that fact explicitly without guessing the missing numbers.  
+    • The final paragraph must be based strictly on the insights from the three earlier paragraphs and the given data — do NOT introduce new information.
+
+    Here is the input data:");
+
+    prompt.push_str(&finance_statement);
+
+    let body = serde_json::json!({
+        "model": config.model,
+        "prompt": prompt,
+        "stream": false,
+    });
+
+    let response = client.post(&config.ollama_host).json(&body).send().await?;
+
+    if response.status().is_success() {
+        let text = response.text().await?;
+        let outer: serde_json::Value = match serde_json::from_str(&text) {
+            Ok(value) => value,
+            Err(e) => {
+                println!("{e}");
+                return Err(e.into());
+            }
+        };
+
+        let model_output = outer["response"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No response field"))?;
+
+        let cleaned = model_output.trim().to_string();
+
+        println!("{cleaned}");
+    } else {
+        eprintln!("Failed to get response: {:?}", response.status());
+    }
+
+    Ok(())
 }

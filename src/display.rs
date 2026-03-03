@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 fn format_num(n: f64) -> String {
     let abs = n.abs();
     let sign = if n < 0.0 { "-" } else { "" };
@@ -31,47 +33,44 @@ fn format_cell(s: &str) -> String {
     }
 }
 
-fn _get_raw(v: &serde_json::Value) -> Option<f64> {
-    v.get("raw")?.as_f64()
-}
-
-fn _get_fmt(v: &serde_json::Value) -> String {
-    v.get("fmt")
-        .and_then(|f| f.as_str())
-        .unwrap_or("-")
-        .to_string()
-}
-
-pub fn print_scraped_table(title: &str, headers: &[String], rows: &[(String, Vec<String>)]) {
+pub fn print_scraped_table(
+    title: &str,
+    headers: &[String],
+    rows: &[(String, Vec<String>)],
+) -> String {
     if rows.is_empty() || headers.is_empty() {
-        return;
+        return String::new();
     }
     let col_width = 14usize;
     let header_width = 40usize;
     let sep = "-".repeat(header_width + 1 + headers.len() * (col_width + 1));
-    println!("\n{}\n{}", title, sep);
-    print!("{:>width$} |", "Metric", width = header_width);
+
+    let mut out = String::new();
+    writeln!(&mut out, "\n{}\n{}", title, sep).ok();
+    write!(&mut out, "{:>width$} |", "Metric", width = header_width).ok();
     for h in headers.iter() {
         let h = if h.len() > col_width {
             format!("{}..", &h[..col_width.saturating_sub(2)])
         } else {
             h.clone()
         };
-        print!(" {:>width$} |", h, width = col_width);
+        write!(&mut out, " {:>width$} |", h, width = col_width).ok();
     }
-    println!();
-    println!("{}", sep);
+    writeln!(&mut out).ok();
+    writeln!(&mut out, "{}", sep).ok();
     for (label, cells) in rows {
         let label_trim = if label.len() > header_width {
             format!("{}..", &label[..header_width.saturating_sub(2)])
         } else {
             label.clone()
         };
-        print!("{:>width$} |", label_trim, width = header_width);
+        write!(&mut out, "{:>width$} |", label_trim, width = header_width).ok();
         for c in cells {
-            print!(" {:>width$} |", format_cell(c), width = col_width);
+            write!(&mut out, " {:>width$} |", format_cell(c), width = col_width).ok();
         }
-        println!();
+        writeln!(&mut out).ok();
     }
-    println!("{}\n", sep);
+    writeln!(&mut out, "{}", sep).ok();
+
+    out
 }

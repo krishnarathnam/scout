@@ -61,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
 
                     println!("Resolved ticker: {}", ticker);
+                    let mut output = String::new();
                     let (inc_res, bal_res, cash_res) = tokio::join!(
                         tools::get_financials(ticker.as_str(), &client, "income_statement"),
                         tools::get_financials(ticker.as_str(), &client, "balance_sheet"),
@@ -68,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
 
                     match inc_res {
-                        Ok(val) => val,
+                        Ok(val) => output.push_str(val.as_str()),
                         Err(e) => {
                             println!("{e}");
                             enable_raw_mode()?;
@@ -77,10 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ui::redraw(&input, &mut prev_lines);
                             continue;
                         }
-                    }
+                    };
 
                     match bal_res {
-                        Ok(val) => val,
+                        Ok(val) => output.push_str(val.as_str()),
                         Err(e) => {
                             println!("{e}");
                             enable_raw_mode()?;
@@ -89,9 +90,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ui::redraw(&input, &mut prev_lines);
                             continue;
                         }
-                    }
+                    };
 
                     match cash_res {
+                        Ok(val) => output.push_str(val.as_str()),
+                        Err(e) => {
+                            println!("{e}");
+                            enable_raw_mode()?;
+                            input.clear();
+                            prev_lines = 1;
+                            ui::redraw(&input, &mut prev_lines);
+                            continue;
+                        }
+                    };
+
+                    match agent::get_review(&output).await {
                         Ok(val) => val,
                         Err(e) => {
                             println!("{e}");

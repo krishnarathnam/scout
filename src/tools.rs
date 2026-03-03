@@ -32,10 +32,13 @@ pub fn find_ticker(company: &str) -> Option<String> {
     }
 }
 
-pub async fn get_financials(symbol: &str, client: &reqwest::Client, finance: &str) -> Result<()> {
+pub async fn get_financials(
+    symbol: &str,
+    client: &reqwest::Client,
+    finance: &str,
+) -> Result<String> {
     let mut link: String = String::new();
     let mut title: String = String::new();
-
     match finance {
         "income_statement" => {
             link = format!("https://finance.yahoo.com/quote/{}/financials", symbol);
@@ -66,8 +69,12 @@ pub async fn get_financials(symbol: &str, client: &reqwest::Client, finance: &st
 
     if let Some((headers, rows)) = income_statement::scrape_financials_table(&body) {
         let period_headers: Vec<String> = headers.into_iter().skip(1).collect();
-        display::print_scraped_table(&title.as_str(), &period_headers, &rows);
-        return Ok(());
+        println!("- Read {title}");
+        return Ok(display::print_scraped_table(
+            &title.as_str(),
+            &period_headers,
+            &rows,
+        ));
     }
 
     Err(anyhow::anyhow!(

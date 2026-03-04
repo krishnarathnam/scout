@@ -16,6 +16,8 @@ use crossterm::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = user::user_client()?;
+    let news_client = user::user_client()?;
+
     enable_raw_mode()?;
 
     ui::print_banner()?;
@@ -62,11 +64,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     println!("Resolved ticker: {}", ticker);
                     let mut output = String::new();
-                    let (inc_res, bal_res, cash_res) = tokio::join!(
-                        tools::get_financials(ticker.as_str(), &client, "income_statement"),
-                        tools::get_financials(ticker.as_str(), &client, "balance_sheet"),
-                        tools::get_financials(ticker.as_str(), &client, "cash_flow")
+                    let (inc_res, bal_res, cash_res, news_res) = tokio::join!(
+                        tools::get_financials(&ticker, &client, "income_statement"),
+                        tools::get_financials(&ticker, &client, "balance_sheet"),
+                        tools::get_financials(&ticker, &client, "cash_flow"),
+                        tools::get_news(&news_client, &ticker)
                     );
+
+                    match news_res {
+                        Ok(val) => val,
+                        Err(e) => {
+                            println!("{e}");
+                            enable_raw_mode()?;
+                            input.clear();
+                            prev_lines = 1;
+                            ui::redraw(&input, &mut prev_lines);
+                            continue;
+                        }
+                    }
 
                     match inc_res {
                         Ok(val) => output.push_str(val.as_str()),
@@ -104,17 +119,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     };
 
-                    match agent::get_review(&output).await {
-                        Ok(val) => val,
-                        Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
-                            continue;
-                        }
-                    }
+                    //match agent::get_review(&output).await {
+                    //    Ok(val) => val,
+                    //    Err(e) => {
+                    //        println!("{e}");
+                    //        enable_raw_mode()?;
+                    //        input.clear();
+                    //        prev_lines = 1;
+                    //        ui::redraw(&input, &mut prev_lines);
+                    //        continue;
+                    //    }
+                    //}
 
                     enable_raw_mode()?;
                     input.clear();

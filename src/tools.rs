@@ -1,5 +1,6 @@
 use crate::display;
 use crate::income_statement;
+use anyhow::Ok;
 use anyhow::Result;
 use csv::Reader;
 use std::fs::File;
@@ -33,7 +34,7 @@ pub fn find_ticker(company: &str) -> Option<String> {
 }
 
 pub async fn get_financials(
-    symbol: &str,
+    symbol: &String,
     client: &reqwest::Client,
     finance: &str,
 ) -> Result<String> {
@@ -80,4 +81,31 @@ pub async fn get_financials(
     Err(anyhow::anyhow!(
         "Could not parse financial data (Yahoo may have changed their format)"
     ))
+}
+
+pub async fn get_news(client: &reqwest::Client, symbol: &String) -> Result<()> {
+    let yf_client = yfinance_rs::YfClient::default();
+    let ticker = yfinance_rs::Ticker::new(&yf_client, symbol);
+
+    let news = ticker.news().await?;
+    for article in news {
+        if let Some(link) = article.link {
+            let title = article.title;
+            let response = client.get(&link).send().await?;
+
+            if !response.status().is_success() {
+                println!(
+                    "Could not fetch data for {title}: HTTP {}",
+                    response.status(),
+                );
+            } else {
+                println!("fetched data for {title} - {link}");
+            }
+
+            let _body = response.text().await?;
+            //println!("###{title}\n {body}");
+        }
+    }
+
+    Ok(())
 }

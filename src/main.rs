@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         tools::get_news(&news_client, &ticker)
                     );
 
-                    match news_res {
+                    let _news = match news_res {
                         Ok(val) => val,
                         Err(e) => {
                             println!("{e}");
@@ -81,7 +81,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             ui::redraw(&input, &mut prev_lines);
                             continue;
                         }
-                    }
+                    };
+
 
                     match inc_res {
                         Ok(val) => output.push_str(val.as_str()),
@@ -119,17 +120,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     };
 
-                    //match agent::get_review(&output).await {
-                    //    Ok(val) => val,
-                    //    Err(e) => {
-                    //        println!("{e}");
-                    //        enable_raw_mode()?;
-                    //        input.clear();
-                    //        prev_lines = 1;
-                    //        ui::redraw(&input, &mut prev_lines);
-                    //        continue;
-                    //    }
-                    //}
+                match agent::get_review(&output).await {
+                    Ok(val) => val,
+                    Err(e) => {
+                        println!("{e}");
+                        enable_raw_mode()?;
+                        input.clear();
+                        prev_lines = 1;
+                        ui::redraw(&input, &mut prev_lines);
+                        continue;
+                        }
+                    }
 
                     enable_raw_mode()?;
                     input.clear();

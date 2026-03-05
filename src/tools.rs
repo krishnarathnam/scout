@@ -3,6 +3,9 @@ use crate::income_statement;
 use anyhow::Ok;
 use anyhow::Result;
 use csv::Reader;
+use scraper::Html;
+use scraper::Selector;
+use std::fmt::Write;
 use std::fs::File;
 use strsim::jaro_winkler;
 
@@ -83,29 +86,106 @@ pub async fn get_financials(
     ))
 }
 
-pub async fn get_news(client: &reqwest::Client, symbol: &String) -> Result<()> {
+pub async fn get_news(client: &reqwest::Client, symbol: &String) -> Result<String> {
     let yf_client = yfinance_rs::YfClient::default();
     let ticker = yfinance_rs::Ticker::new(&yf_client, symbol);
 
     let news = ticker.news().await?;
-    for article in news {
+    let mut news_combined = String::new();
+
+    for (idx, article) in news.into_iter().enumerate() {
         if let Some(link) = article.link {
             let title = article.title;
-            let response = client.get(&link).send().await?;
 
+            writeln!(&mut news_combined, "========== Article {} ==========", idx + 1).ok();
+            writeln!(&mut news_combined, "Title: {}", title).ok();
+            writeln!(&mut news_combined, "Link:  {}", link).ok();
+            writeln!(&mut news_combined).ok();
+
+            let response = client.get(&link).send().await?;
             if !response.status().is_success() {
-                println!(
-                    "Could not fetch data for {title}: HTTP {}",
-                    response.status(),
-                );
+                writeln!(
+                    &mut news_combined,
+                    "[ERROR] Could not fetch article body: HTTP {}",
+                    response.status()
+                )
+                .ok();
+                writeln!(&mut news_combined).ok();
+                continue;
             } else {
                 println!("fetched data for {title} - {link}");
             }
 
-            let _body = response.text().await?;
-            //println!("###{title}\n {body}");
+            let body_html = response.text().await?;
+            let document = Html::parse_document(&body_html);
+
+            let container_selector = Selector::parse("div.article.yf-1qeh9w1").unwrap();
+            let text_selector =
+                Selector::parse("p, h1, h2, h3, h4, h5, h6, li, blockquote").unwrap();
+
+            let mut article_text = String::new();
+
+            let is_boilerplate = |t: &str| {
+                let l = t.to_lowercase();
+                let stop_markers = [
+                    "go to accessibility shortcuts",
+                    "share",
+                    "comments",
+                    "read more",
+                    "additional sources",
+                    "edited by",
+                    "the big question",
+                ];
+                stop_markers.iter().any(|m| l.contains(m))
+            };
+
+            if let Some(container) = document.select(&container_selector).next() {
+                for element in container.select(&text_selector) {
+                    let text = element.text().collect::<Vec<_>>().join(" ");
+                    let text = text.trim();
+
+                    if text.len() < 40 {
+                        continue;
+                    }
+                    if is_boilerplate(text) {
+                        break;
+                    }
+
+                    if !article_text.is_empty() {
+                        article_text.push_str("\n\n");
+                    }
+                    article_text.push_str(text);
+                }
+            } else {
+                let fallback_selector = Selector::parse(
+                    "article, main, p, h1, h2, h3, h4, h5, h6, li, blockquote",
+                )
+                .unwrap();
+
+                for element in document.select(&fallback_selector) {
+                    let text = element.text().collect::<Vec<_>>().join(" ");
+                    let text = text.trim();
+
+                    if text.len() < 40 {
+                        continue;
+                    }
+                    if is_boilerplate(text) {
+                        break;
+                    }
+
+                    if !article_text.is_empty() {
+                        article_text.push_str("\n\n");
+                    }
+                    article_text.push_str(text);
+                }
+            }
+
+            let article_text = article_text.trim();
+            if !article_text.is_empty() {
+                writeln!(&mut news_combined, "{}\n", article_text).ok();
+            }
         }
     }
 
-    Ok(())
+    Ok(news_combined)
 }

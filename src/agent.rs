@@ -1,5 +1,5 @@
 use crate::{config::Config, tools};
-use anyhow::Result;
+use anyhow::{Ok, Result};
 
 pub async fn get_ticker(input: &str) -> Result<String> {
     let config = Config::from_env()?;
@@ -43,7 +43,7 @@ pub async fn get_ticker(input: &str) -> Result<String> {
     if response.status().is_success() {
         let text = response.text().await?;
         let outer: serde_json::Value = match serde_json::from_str(&text) {
-            Ok(value) => value,
+            std::result::Result::Ok(value) => value,
             Err(e) => {
                 println!("{e}");
                 return Err(e.into());
@@ -65,7 +65,7 @@ pub async fn get_ticker(input: &str) -> Result<String> {
         }
 
         let parsed: serde_json::Value = match serde_json::from_str(cleaned) {
-            Ok(value) => value,
+            std::result::Result::Ok(value) => value,
             Err(e) => {
                 println!("{e}");
                 return Err(e.into());
@@ -99,7 +99,7 @@ pub async fn get_ticker(input: &str) -> Result<String> {
     Ok(ticker)
 }
 
-pub async fn get_review(finance_statement: &String) -> Result<()> {
+pub async fn get_financial_review(finance_statement: &String) -> Result<()> {
     println!("- Analyzing data");
     let config = Config::from_env()?;
     let client = reqwest::Client::new();
@@ -142,7 +142,7 @@ pub async fn get_review(finance_statement: &String) -> Result<()> {
     if response.status().is_success() {
         let text = response.text().await?;
         let outer: serde_json::Value = match serde_json::from_str(&text) {
-            Ok(value) => value,
+            std::result::Result::Ok(value) => value,
             Err(e) => {
                 println!("{e}");
                 return Err(e.into());
@@ -160,5 +160,75 @@ pub async fn get_review(finance_statement: &String) -> Result<()> {
         eprintln!("Failed to get response: {:?}", response.status());
     }
 
+    Ok(())
+}
+
+pub async fn get_news_review(news: &String) -> Result<()> {
+    let config = Config::from_env()?;
+    let client = reqwest::Client::new();
+    let mut prompt: String = String::from("You are a financial news analyst.
+
+You will be given multiple news headlines or article summaries related to a company.
+
+Your task is to analyze ALL the news together and generate the following output:
+
+Section 1: Key events summary (bullet points)  
+Section 2: Sentiment analysis (bullet points)  
+Section 3: Overall interpretation paragraph
+
+Format:
+
+Key Developments:
+- point
+- point
+- point
+
+News Sentiment:
+- point
+- point
+- point
+
+Overall Impact:
+Write one concise paragraph explaining the overall meaning of the news and the potential impact on investor perception.
+
+Rules:
+• Analyze all news items collectively.  
+• Identify repeated themes, risks, announcements, or events.  
+• Use only information present in the provided news.  
+• Do NOT hallucinate facts or introduce outside knowledge.  
+• If news items conflict, explicitly mention the contradiction.  
+• If the information is insufficient, state that clearly.
+
+Here is the news data:");
+
+    prompt.push_str(&news);
+    let body = serde_json::json!({
+        "model": config.model,
+        "prompt": prompt,
+        "stream": false,
+    });
+
+    let response = client.post(&config.ollama_host).json(&body).send().await?;
+
+    if response.status().is_success() {
+        let text = response.text().await?;
+        let outer: serde_json::Value = match serde_json::from_str(&text) {
+            std::result::Result::Ok(value) => value,
+            Err(e) => {
+                println!("{e}");
+                return Err(e.into());
+            }
+        };
+
+        let model_output = outer["response"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("No response field"))?;
+
+        let cleaned = model_output.trim().to_string();
+
+        println!("{cleaned}");
+    } else {
+        eprintln!("Failed to get response: {:?}", response.status());
+    }
     Ok(())
 }

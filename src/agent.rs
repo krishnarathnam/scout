@@ -72,7 +72,7 @@ pub async fn get_ticker(input: &str) -> Result<String> {
             }
         };
 
-        println!("{parsed:#?}");
+        println!("{:#?}", parsed["questions"]);
 
         if parsed["ticker"].is_null() {
             if let Some(company) = parsed["company"].as_str() {
@@ -100,7 +100,7 @@ pub async fn get_ticker(input: &str) -> Result<String> {
 }
 
 pub async fn get_financial_review(finance_statement: &String) -> Result<()> {
-    println!("- Analyzing data");
+    println!("\n========== FINANCIAL ANALYSIS ==========\n");
     let config = Config::from_env()?;
     let client = reqwest::Client::new();
     let mut prompt: String = String::from("You are a financial statement analyzer.
@@ -151,11 +151,14 @@ pub async fn get_financial_review(finance_statement: &String) -> Result<()> {
 
         let model_output = outer["response"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("No response field"))?;
+            .ok_or_else(|| anyhow::anyhow!("No response field"))?
+            .trim();
 
-        let cleaned = model_output.trim().to_string();
-
-        println!("{cleaned}");
+        if !model_output.is_empty() {
+            println!("{model_output}\n");
+        } else {
+            println!("[No analysis text returned]\n");
+        }
     } else {
         eprintln!("Failed to get response: {:?}", response.status());
     }
@@ -222,11 +225,16 @@ Here is the news data:");
 
         let model_output = outer["response"]
             .as_str()
-            .ok_or_else(|| anyhow::anyhow!("No response field"))?;
+            .ok_or_else(|| anyhow::anyhow!("No response field"))?
+            .trim();
 
-        let cleaned = model_output.trim().to_string();
+        println!("========== NEWS SUMMARY & SENTIMENT ==========\n");
 
-        println!("{cleaned}");
+        if !model_output.is_empty() {
+            println!("{model_output}\n");
+        } else {
+            println!("[No news analysis text returned]\n");
+        }
     } else {
         eprintln!("Failed to get response: {:?}", response.status());
     }

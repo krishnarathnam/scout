@@ -13,6 +13,29 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode},
 };
 
+fn reset_prompt(input: &mut String, prev_lines: &mut u16) {
+    input.clear();
+    *prev_lines = 1;
+    ui::redraw(input, prev_lines);
+}
+
+fn reset_with_banner(input: &mut String, prev_lines: &mut u16) {
+    input.clear();
+    *prev_lines = 1;
+    if let Err(e) = ui::print_banner() {
+        eprintln!("{e}");
+    }
+    ui::redraw(input, prev_lines);
+}
+
+fn handle_error<E: std::fmt::Display>(e: E, input: &mut String, prev_lines: &mut u16) {
+    println!("{e}");
+    if let Err(err) = enable_raw_mode() {
+        eprintln!("{err}");
+    }
+    reset_prompt(input, prev_lines);
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = user::user_client()?;
@@ -41,10 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 KeyCode::Enter => {
                     if input.trim() == "/model" {
                         model_select::run_model_selection().await?;
-                        input.clear();
-                        prev_lines = 1;
-                        ui::print_banner()?;
-                        ui::redraw(&input, &mut prev_lines);
+                        reset_with_banner(&mut input, &mut prev_lines);
                         continue;
                     }
                     disable_raw_mode()?;
@@ -53,11 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let ticker = match agent::get_ticker(&input).await {
                         Ok(value) => value,
                         Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
+                            handle_error(e, &mut input, &mut prev_lines);
                             continue;
                         }
                     };
@@ -74,11 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let news = match news_res {
                         Ok(val) => val,
                         Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
+                            handle_error(e, &mut input, &mut prev_lines);
                             continue;
                         }
                     };
@@ -86,11 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match inc_res {
                         Ok(val) => output.push_str(val.as_str()),
                         Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
+                            handle_error(e, &mut input, &mut prev_lines);
                             continue;
                         }
                     };
@@ -98,11 +106,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match bal_res {
                         Ok(val) => output.push_str(val.as_str()),
                         Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
+                            handle_error(e, &mut input, &mut prev_lines);
                             continue;
                         }
                     };
@@ -110,42 +114,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match cash_res {
                         Ok(val) => output.push_str(val.as_str()),
                         Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
+                            handle_error(e, &mut input, &mut prev_lines);
                             continue;
                         }
                     };
 
-                    match agent::get_financial_review(&output).await {
-                        Ok(val) => val,
-                        Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
-                            continue;
-                        }
+                    if let Err(e) = agent::get_financial_review(&output).await {
+                        handle_error(e, &mut input, &mut prev_lines);
+                        continue;
                     }
                     println!("\n\n");
-                    match agent::get_news_review(&news).await {
-                        Ok(val) => val,
-                        Err(e) => {
-                            println!("{e}");
-                            enable_raw_mode()?;
-                            input.clear();
-                            prev_lines = 1;
-                            ui::redraw(&input, &mut prev_lines);
-                            continue;
-                        }
+                    if let Err(e) = agent::get_news_review(&news).await {
+                        handle_error(e, &mut input, &mut prev_lines);
+                        continue;
                     }
-                    enable_raw_mode()?;
-                    input.clear();
-                    prev_lines = 1;
-                    ui::redraw(&input, &mut prev_lines);
+                    if let Err(e) = enable_raw_mode() {
+                        eprintln!("{e}");
+                    }
+                    reset_prompt(&mut input, &mut prev_lines);
                 }
 
                 KeyCode::Esc => break,
